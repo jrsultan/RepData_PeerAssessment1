@@ -8,18 +8,175 @@ output:
 
 ## Loading and preprocessing the data
 
+The following is the code I used to load the data to a variable called "data". 
+I also wanted to see how the data looks like, so I used the head function.
+
+```{r}
+data<- read.csv("activity.csv")
+head(data)
+```
 
 
 ## What is mean total number of steps taken per day?
 
+### Calculate for the total number of steps taken per day.
+
+I need to find out the average steps per day, and arrange them in a table using the aggregate function. Note that the problem asks for the TOTAL (sum) of the steps taken per day. I also used the xtable function to make the table look more presentable.
+
+```{r echo=TRUE,results='asis'}
+
+library(xtable)
+stepsperday<-aggregate(steps~date, data=data, rm.na=TRUE, FUN=sum)
+print(xtable(stepsperday), type = "html")
+
+```
+
+### Make a histogram of the number of steps taken per day.
+For this plot, I will use the ggplot plotting system, taking the dates in the x-axis and then the average number of steps in the y-axis.
+
+```{r echo=TRUE, fig.height=6, fig.width=12}
+
+library(ggplot2)
+meanplot<-ggplot(data,aes(x=factor(date),y=steps))+ stat_summary(fun.y="mean", geom="bar")
+meanplot + xlab("Date")+ylab("Average Steps")+ggtitle("Average Number of Steps per Day") + theme(axis.text.x=element_text(angle=60, hjust=1))
+
+```
+
+### Calculate and report the mean and median of the total number of steps taken per day.
+
+For this, I will also use the aggregate function. First, the mean:
+
+```{r echo=TRUE, results='asis'}
+
+ave<-aggregate(steps~date, data=data, rm.na=TRUE, FUN=mean)
+print(xtable(ave), type = "html")
+
+```
+
+Next, the median:
+
+```{r echo=TRUE, results='asis'}
+
+medi<-aggregate(steps~date, data=data, rm.na=TRUE, FUN=median)
+print(xtable(medi), type = "html")
+
+```
 
 
 ## What is the average daily activity pattern?
+
+### Make a time series plot of the time intervals.
+
+For this, I will use the base plotting system.
+
+``` {r echo=TRUE,fig.height=6, fig.width=12}
+
+inter<-aggregate(steps~interval,data=data,rm.na=TRUE,FUN=mean)
+plot(inter,type="l",xlab="Time Intervals",ylab="Average Number of Steps",main="Average Number of Steps in Time Intervals")
+
+```
+
+### Which 5-minute interval contains the maximum number of steps?
+
+Since we already have a data frame of the aggregated average steps with time intervals ("inter"), I will simply get the max from that.
+
+```{r echo=TRUE}
+
+sortinter<-inter[order(-inter$steps),]
+sortinter[1,]
+
+```
 
 
 
 ## Imputing missing values
 
+### Counting the number of NA rows
 
+For this, I will use the is.na function, with colSums so we know which columns have the corresponding number of NAs.
+
+```{r echo=TRUE}
+
+colSums(is.na(data))
+
+```
+
+
+### Filling in the NA rows
+
+I used the na.omit function:
+
+```{r echo=TRUE}
+
+newdata<-data
+newdata$steps[is.na(newdata$steps)]<-mean(na.omit(data$steps))
+
+
+```
+
+### Looking at the difference
+
+```{r echo=TRUE, fig.height=6, fig.width=12}
+
+newmeans<-ggplot(newdata,aes(x=factor(date),y=steps))+ stat_summary(fun.y="mean", geom="bar")
+newmeans + xlab("Date")+ylab("NEW Average Steps")+ggtitle("Average Number of Steps per Day") + theme(axis.text.x=element_text(angle=60, hjust=1))
+
+```
+
+NEW means:
+
+```{r echo=TRUE, results='asis'}
+
+newave<-aggregate(steps~date, data=newdata, rm.na=TRUE, FUN=mean)
+print(xtable(newave), type = "html")
+
+```
+
+NEW medians:
+
+```{r echo=TRUE, results='asis'}
+
+newmedi<-aggregate(steps~date, data=newdata, rm.na=TRUE, FUN=median)
+print(xtable(newmedi), type = "html")
+
+```
+
+When comparing these results, there IS a difference, but only a slight one in a few days (like the first day, for example).
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+### Adding a variable indicating whether the date is a weekend or a weekday (in column "wDay")
+
+``` {r echo=TRUE}
+
+newdata$date <- as.Date(newdata$date)
+weekdays1 <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+newdata$wDay <- factor((weekdays(newdata$date) %in% weekdays1), 
+         levels=c(FALSE, TRUE), labels=c('weekend', 'weekday')) 
+
+```
+
+Look at the new data here:
+
+``` {r echo=TRUE, results='asis'}
+
+newdata$date <- data$date
+print(xtable(head(newdata)),type="html")
+
+```
+
+### Comparing the plots of weekday and weekend based on time intervals
+
+``` {r echo=TRUE,fig.height=12, fig.width=12}
+
+daydata<-newdata[newdata$wDay=="weekday",]
+enddata<-newdata[newdata$wDay=="weekend",]
+
+par(mfrow = c(2, 1))
+dayplot<-aggregate(steps~interval,data=daydata,rm.na=TRUE,FUN=mean)
+endplot<-aggregate(steps~interval,data=enddata,rm.na=TRUE,FUN=mean)
+plot(dayplot,type="l",xlab="Time Intervals",ylab="Average Number of Steps",main="Average Number of Steps in Time Intervals on WEEKDAYS")
+plot(endplot,type="l",xlab="Time Intervals",ylab="Average Number of Steps",main="Average Number of Steps in Time Intervals on WEEKENDS")
+
+
+```
